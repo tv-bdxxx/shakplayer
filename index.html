@@ -1,84 +1,93 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RS Shaka Player</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RS Shaka Player</title>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css">
+  <!-- Shaka Player UI এবং CSS লাইব্রেরি -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css">
 
-<style>
-html,body{
-  margin:0;
-  padding:0;
-  background:#000;
-  height:100%;
-  overflow:hidden;
-}
-.shaka-video-container{
-  width:100%;
-  height:100%;
-}
-video{
-  width:100%;
-  height:100%;
-  object-fit:contain;
-}
-</style>
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    .shaka-video-container {
+      width: 100%;
+      height: 100%;
+    }
+    video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+  </style>
 </head>
-
 <body>
 
-<div class="shaka-video-container" data-shaka-player-container>
-  <video autoplay playsinline id="video"></video>
-</div>
+  <!-- ভিডিও কন্টেইনার -->
+  <div class="shaka-video-container" data-shaka-player-container>
+    <video autoplay playsinline id="video"></video>
+  </div>
 
-<script>
-const video = document.getElementById("video");
-const params = new URLSearchParams(window.location.search);
-const streamUrl = params.get("url");
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      // পলিফিল ইনস্টল
+      shaka.polyfill.installAll();
 
-document.addEventListener("DOMContentLoaded", async () => {
-  shaka.polyfill.installAll();
-
-  if (!shaka.Player.isBrowserSupported()) {
-    alert("Shaka Player not supported!");
-    return;
-  }
-
-  const player = new shaka.Player(video);
-  const ui = new shaka.ui.Overlay(player, document.querySelector('.shaka-video-container'), video);
-
-  ui.configure({
-    controlPanelElements: ['play_pause', 'mute', 'volume', 'spacer', 'quality', 'fullscreen']
-  });
-
-  // যদি আপনার লিংকে নির্দিষ্ট DRM না লাগে, তবে নিচের player.configure অংশটি মুছে দিতে পারেন
-  player.configure({
-    drm: {
-      clearKeys: {
-        "549ab7cd35a64bb6bb479ecead04d69d": "829799ed534d11fcadeb4b192467e050"
+      // ব্রাউজার সাপোর্ট চেক
+      if (!shaka.Player.isBrowserSupported()) {
+        alert("Shaka Player is not supported in this browser!");
+        return;
       }
-    },
-    manifest: {
-      retryParameters: { maxAttempts: 3 } // লোড না হলে ৩ বার চেষ্টা করবে
-    }
-  });
 
-  try {
-    if (streamUrl) {
-      await player.load(streamUrl);
-    } else {
-      alert("No stream URL provided!");
-    }
-  } catch (e) {
-    console.error("Error Code:", e.code, e);
-    // অ্যালার্টে সরাসরি Shaka Player-এর আসল এরর কোড দেখতে পাবেন এখন
-    alert("Stream load failed! Error Code: " + e.code);
-  }
-});
-</script>
+      const video = document.getElementById("video");
+      const container = document.querySelector('.shaka-video-container');
+
+      // প্লেয়ার এবং ইউজার ইন্টারফেস (UI) ইনিশিয়ালাইজেশন
+      const player = new shaka.Player(video);
+      const ui = new shaka.ui.Overlay(player, container, video);
+
+      // কন্ট্রোল প্যানেল কনফিগারেশন
+      ui.configure({
+        controlPanelElements: ['play_pause', 'mute', 'volume', 'spacer', 'quality', 'fullscreen']
+      });
+
+      // DRM ClearKeys কনফিগারেশন
+      player.configure({
+        drm: {
+          clearKeys: {
+            "549ab7cd35a64bb6bb479ecead04d69d": "829799ed534d11fcadeb4b192467e050"
+          }
+        },
+        manifest: {
+          retryParameters: { maxAttempts: 3 }
+        }
+      });
+
+      // URL থেকে ভিডিওর লিংক নেওয়া (?url=...)
+      const params = new URLSearchParams(window.location.search);
+      const streamUrl = params.get("url");
+
+      try {
+        if (streamUrl) {
+          await player.load(streamUrl);
+          console.log("The video has been loaded successfully!");
+        } else {
+          alert("Error: No stream URL provided in the address bar!");
+        }
+      } catch (error) {
+        console.error("Error Code:", error.code, error);
+        alert("Stream load failed! Error Code: " + error.code);
+      }
+    });
+  </script>
 
 </body>
 </html>
