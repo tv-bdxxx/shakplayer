@@ -4,59 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>RS Shaka Player</title>
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css">
-
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #000;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-    }
-    .shaka-video-container {
-      width: 100% !important;
-      height: 100% !important;
-      max-width: 100% !important;
-    }
-    
-    /* ডিফল্টভাবে ভিডিও স্ক্রিনে ফিট থাকবে */
-    video {
-      width: 100% !important;
-      height: 100% !important;
-      object-fit: contain; /* ডিফল্ট Original */
-      transition: object-fit 0.2s ease;
-    }
-
-    /* জুম বা ফুল স্ক্রিন মোডের জন্য নতুন CSS ক্লাস */
-    video.zoom-mode {
-      object-fit: cover !important; /* ক্যামেরার নচসহ পুরো স্ক্রিন কভার করবে */
-    }
-    video.stretch-mode {
-      object-fit: fill !important; /* স্ক্রিন অনুযায়ী টেনে বড় করবে */
-    }
-
-    /* কাস্টম জুম বাটনের স্টাইল */
-    .custom-zoom-btn {
-      background: none;
-      border: none;
-      color: white;
-      font-size: 14px;
-      font-weight: bold;
-      cursor: pointer;
-      padding: 0 10px;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      text-transform: uppercase;
-    }
-    .custom-zoom-btn:hover {
-      color: #ff0055;
-    }
+    html, body { margin: 0; padding: 0; background: #000; width: 100%; height: 100%; overflow: hidden; }
+    .shaka-video-container { width: 100% !important; height: 100% !important; }
+    video { width: 100% !important; height: 100% !important; object-fit: contain; transition: object-fit 0.2s ease; }
+    video.zoom-mode { object-fit: cover !important; }
+    video.stretch-mode { object-fit: fill !important; }
+    .custom-zoom-btn { background: none; border: none; color: white; font-size: 14px; font-weight: bold; cursor: pointer; padding: 0 10px; height: 100%; display: flex; align-items: center; justify-content: center; text-transform: uppercase; }
   </style>
 </head>
 <body>
@@ -68,86 +24,52 @@
   <script>
     document.addEventListener("DOMContentLoaded", async () => {
       shaka.polyfill.installAll();
-
-      if (!shaka.Player.isBrowserSupported()) {
-        alert("Shaka Player is not supported in this browser!");
-        return;
-      }
+      if (!shaka.Player.isBrowserSupported()) { return; }
 
       const video = document.getElementById("video");
       const container = document.querySelector('.shaka-video-container');
-
       const player = new shaka.Player(video);
       const ui = new shaka.ui.Overlay(player, container, video);
 
-      // কন্ট্রোল প্যানেল কনফিগারেশন
       ui.configure({
         controlPanelElements: ['play_pause', 'mute', 'volume', 'spacer', 'quality', 'fullscreen']
       });
 
       player.configure({
-        manifest: {
-          retryParameters: { maxAttempts: 3 }
-        }
+        manifest: { retryParameters: { maxAttempts: 3 } }
       });
 
-      // ---- জুম (Aspect Ratio) কন্ট্রোল কোড ----
-      const controls = ui.getControls();
+      // জুম বাটন লজিক
       const controlPanel = container.querySelector('.shaka-control-panel');
-      
-      // একটি কাস্টম বাটন তৈরি করা হলো
       const zoomBtn = document.createElement('button');
       zoomBtn.classList.add('custom-zoom-btn');
-      zoomBtn.innerText = 'Original'; // ডিফল্ট টেক্সট
+      zoomBtn.innerText = 'Original';
       
-      // বাটনের পজিশন ফুল-স্ক্রিন বাটনের ঠিক আগে দেওয়া হলো
       const fullscreenBtn = controlPanel.querySelector('.shaka-fullscreen-button');
-      if (fullscreenBtn) {
-        controlPanel.insertBefore(zoomBtn, fullscreenBtn);
-      } else {
-        controlPanel.appendChild(zoomBtn);
-      }
+      if (fullscreenBtn) { controlPanel.insertBefore(zoomBtn, fullscreenBtn); } 
+      else { controlPanel.appendChild(zoomBtn); }
 
-      // মোড পরিবর্তনের লজিক (Original -> Stretch -> Zoom)
-      let currentMode = 0; // 0 = Original, 1 = Stretch, 2 = Zoom
-      
+      let currentMode = 0;
       zoomBtn.addEventListener('click', () => {
         currentMode = (currentMode + 1) % 3;
-        
-        if (currentMode === 0) {
-          video.className = ''; // Original (contain)
-          zoomBtn.innerText = 'Original';
-        } else if (currentMode === 1) {
-          video.className = 'stretch-mode'; // Stretch (fill)
-          zoomBtn.innerText = 'Stretch';
-        } else if (currentMode === 2) {
-          video.className = 'zoom-mode'; // Zoom (cover)
-          zoomBtn.innerText = 'Zoom';
-        }
+        if (currentMode === 0) { video.className = ''; zoomBtn.innerText = 'Original'; } 
+        else if (currentMode === 1) { video.className = 'stretch-mode'; zoomBtn.innerText = 'Stretch'; } 
+        else if (currentMode === 2) { video.className = 'zoom-mode'; zoomBtn.innerText = 'Zoom'; }
       });
 
-      // স্ক্রিন রোটেট বা ফুলস্ক্রিন হলে নচ সাপোর্ট নিশ্চিত করার ট্রিক
-      document.addEventListener('fullscreenchange', () => {
-        if (document.fullscreenElement) {
-          window.scrollTo(0, 1);
-        }
-      });
-
-      // URL থেকে ভিডিও লোড করা
+      // 🎯 ইউআরএল রিড করার সঠিক লজিক
       const params = new URLSearchParams(window.location.search);
       const streamUrl = params.get("url");
 
       try {
         if (streamUrl) {
-          await player.load(streamUrl);
-        } else {
-          alert("Error: No stream URL provided!");
+          // কিছু ব্রাউজারে লিংক ডিকোড করতে সমস্যা হয়, তাই এখানে decodeURIComponent করা হয়েছে
+          await player.load(decodeURIComponent(streamUrl));
         }
       } catch (error) {
-        console.error("Error Code:", error.code, error);
+        console.error("Error Code:", error.code);
       }
     });
   </script>
-
 </body>
 </html>
