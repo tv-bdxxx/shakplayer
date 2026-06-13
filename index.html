@@ -4,36 +4,18 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>RS Shaka Player</title>
-
   <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css">
-
   <style>
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: #000;
-      width: 100%;
-      height: 100%;
-      overflow: hidden;
-    }
-    .shaka-video-container {
-      width: 100%;
-      height: 100%;
-    }
-    video {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
-    }
+    html, body { margin: 0; padding: 0; background: #000; width: 100%; height: 100%; overflow: hidden; }
+    .shaka-video-container { width: 100%; height: 100%; }
+    video { width: 100%; height: 100%; object-fit: contain; }
   </style>
 </head>
 <body>
-
   <div class="shaka-video-container" data-shaka-player-container>
-    <video autoplay playsinline id="video"></video>
+    <video autoplay muted playsinline id="video"></video>  <!-- muted যোগ করা হয়েছে -->
   </div>
-
   <script>
     document.addEventListener("DOMContentLoaded", async () => {
       shaka.polyfill.installAll();
@@ -45,7 +27,6 @@
 
       const video = document.getElementById("video");
       const container = document.querySelector('.shaka-video-container');
-
       const player = new shaka.Player(video);
       const ui = new shaka.ui.Overlay(player, container, video);
 
@@ -53,11 +34,10 @@
         controlPanelElements: ['play_pause', 'mute', 'volume', 'spacer', 'quality', 'fullscreen']
       });
 
-      // এখানে সাধারণ এবং DRM দুই ধরণের লিংকের জন্যই রিট্রাই প্যারামিটার রাখা হয়েছে
       player.configure({
-        manifest: {
-          retryParameters: { maxAttempts: 3 }
-        }
+        manifest: { retryParameters: { maxAttempts: 3 } },
+        // ডিআরএম প্রয়োজন হলে নিচের অংশ আনকমেন্ট করুন:
+        // drm: { servers: { 'com.widevine.alpha': 'YOUR_LICENSE_URL' } }
       });
 
       const params = new URLSearchParams(window.location.search);
@@ -72,10 +52,9 @@
         }
       } catch (error) {
         console.error("Error Code:", error.code, error);
-        alert("Stream load failed! Error Code: " + error.code);
+        alert(`Stream load failed! Error: ${error.message || error.code}`);
       }
     });
   </script>
-
 </body>
 </html>
