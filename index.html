@@ -4,72 +4,133 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>RS Shaka Player</title>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css">
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.compiled.js"></script>
+
   <style>
-    html, body { margin: 0; padding: 0; background: #000; width: 100%; height: 100%; overflow: hidden; }
-    .shaka-video-container { width: 100% !important; height: 100% !important; }
-    video { width: 100% !important; height: 100% !important; object-fit: contain; transition: object-fit 0.2s ease; }
-    video.zoom-mode { object-fit: cover !important; }
-    video.stretch-mode { object-fit: fill !important; }
-    .custom-zoom-btn { background: none; border: none; color: white; font-size: 14px; font-weight: bold; cursor: pointer; padding: 0 10px; height: 100%; display: flex; align-items: center; justify-content: center; text-transform: uppercase; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    /* কন্টেইনার এবং ভিডিও প্লেয়ার সেটিংস */
+    .player-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
+    }
+    
+    video {
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: contain; /* ডিফল্ট Original */
+      transition: object-fit 0.2s ease;
+    }
+
+    /* 📱 জুম ও স্ট্রেচ মোড (ক্যামেরার নচসহ পুরো স্ক্রিন কভার করবে) */
+    video.zoom-mode {
+      object-fit: cover !important;
+    }
+    video.stretch-mode {
+      object-fit: fill !important;
+    }
+
+    /* 🎛️ আমাদের নিজস্ব কাস্টম জুম বাটন স্টাইল */
+    .zoom-control-layer {
+      position: absolute;
+      bottom: 50px; /* ভিডিও কন্ট্রোল বারের ঠিক ওপরে থাকবে */
+      right: 15px;
+      z-index: 9999FF;
+    }
+
+    .zoom-btn {
+      background: rgba(0, 240, 255, 0.2);
+      color: #00f0ff;
+      border: 1px solid #00f0ff;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: bold;
+      border-radius: 4px;
+      cursor: pointer;
+      text-transform: uppercase;
+      box-shadow: 0 0 10px rgba(0, 240, 255, 0.4);
+      transition: all 0.2s;
+    }
+
+    .zoom-btn:hover {
+      background: #ff0055;
+      color: #fff;
+      border-color: #ff0055;
+      box-shadow: 0 0 10px #ff0055;
+    }
   </style>
 </head>
 <body>
 
-  <div class="shaka-video-container" data-shaka-player-container>
-    <video autoplay playsinline id="video"></video>
+  <div class="player-container">
+    <video autoplay playsinline controls id="video"></video>
+    
+    <div class="zoom-control-layer">
+      <button class="zoom-btn" id="zoomToggleBtn">Original</button>
+    </div>
   </div>
 
   <script>
     document.addEventListener("DOMContentLoaded", async () => {
       shaka.polyfill.installAll();
-      if (!shaka.Player.isBrowserSupported()) { return; }
+
+      if (!shaka.Player.isBrowserSupported()) {
+        alert("Shaka Player is not supported in this browser!");
+        return;
+      }
 
       const video = document.getElementById("video");
-      const container = document.querySelector('.shaka-video-container');
       const player = new shaka.Player(video);
-      const ui = new shaka.ui.Overlay(player, container, video);
 
-      ui.configure({
-        controlPanelElements: ['play_pause', 'mute', 'volume', 'spacer', 'quality', 'fullscreen']
-      });
-
+      // রিট্রাই প্যারামিটার
       player.configure({
         manifest: { retryParameters: { maxAttempts: 3 } }
       });
 
-      // জুম বাটন লজিক
-      const controlPanel = container.querySelector('.shaka-control-panel');
-      const zoomBtn = document.createElement('button');
-      zoomBtn.classList.add('custom-zoom-btn');
-      zoomBtn.innerText = 'Original';
-      
-      const fullscreenBtn = controlPanel.querySelector('.shaka-fullscreen-button');
-      if (fullscreenBtn) { controlPanel.insertBefore(zoomBtn, fullscreenBtn); } 
-      else { controlPanel.appendChild(zoomBtn); }
-
-      let currentMode = 0;
-      zoomBtn.addEventListener('click', () => {
-        currentMode = (currentMode + 1) % 3;
-        if (currentMode === 0) { video.className = ''; zoomBtn.innerText = 'Original'; } 
-        else if (currentMode === 1) { video.className = 'stretch-mode'; zoomBtn.innerText = 'Stretch'; } 
-        else if (currentMode === 2) { video.className = 'zoom-mode'; zoomBtn.innerText = 'Zoom'; }
-      });
-
-      // 🎯 ইউআরএল রিড করার সঠিক লজিক
+      // 🎯 ইউআরএল থেকে ভিডিওর সঠিক লিংক রিড করা
       const params = new URLSearchParams(window.location.search);
-      const streamUrl = params.get("url");
+      let streamUrl = params.get("url");
 
-      try {
-        if (streamUrl) {
-          // কিছু ব্রাউজারে লিংক ডিকোড করতে সমস্যা হয়, তাই এখানে decodeURIComponent করা হয়েছে
+      if (streamUrl) {
+        try {
           await player.load(decodeURIComponent(streamUrl));
+          console.log("Video loaded successfully!");
+        } catch (error) {
+          console.error("Error Code:", error.code, error);
         }
-      } catch (error) {
-        console.error("Error Code:", error.code);
       }
+
+      // 🔄 জুম পরিবর্তনের লজিক (Original -> Stretch -> Zoom)
+      const zoomBtn = document.getElementById("zoomToggleBtn");
+      let currentMode = 0;
+
+      zoomBtn.addEventListener('click', (e) => {
+        e.stopPropagation(); // ভিডিও প্লে/পজ হওয়া আটকাবে
+        currentMode = (currentMode + 1) % 3;
+        
+        if (currentMode === 0) {
+          video.className = ''; 
+          zoomBtn.innerText = 'Original';
+        } else if (currentMode === 1) {
+          video.className = 'stretch-mode'; 
+          zoomBtn.innerText = 'Stretch';
+        } else if (currentMode === 2) {
+          video.className = 'zoom-mode'; 
+          zoomBtn.innerText = 'Zoom';
+        }
+      });
     });
   </script>
+
 </body>
 </html>
