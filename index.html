@@ -2,280 +2,76 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-  <title>RS Shaka Player - Zoom Control</title>
-
-  <!-- Shaka Player库和UI组件 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RS Shaka Player</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css">
-
-  <!-- 引入Google Material Icons，用于显示缩放按钮的图标 -->
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
-
   <style>
-    * {
+    html, body {
       margin: 0;
       padding: 0;
-      box-sizing: border-box;
-      user-select: none; /* 避免拖动时选中文本，提升按钮点击体验 */
-    }
-
-    body, html {
+      background: #000;
       width: 100%;
       height: 100%;
-      background: #000;
       overflow: hidden;
     }
-
-    /* 视频播放器主容器，相对定位是缩放效果的基石 */
     .shaka-video-container {
       width: 100%;
       height: 100%;
-      position: relative;
-      overflow: hidden;  /* 缩放超出边界时裁剪，保持整洁 */
     }
-
-    /* 直接作用在 <video> 元素上的缩放，实现真正的视频画面缩放 */
     video {
       width: 100%;
       height: 100%;
-      object-fit: contain;  /* 保持原始比例 */
-      transform-origin: center center; /* 以视频中心为缩放基准 */
-      transition: transform 0.2s ease-out; /* 平滑的缩放动画 */
-      will-change: transform; /* 提升缩放性能 */
-    }
-
-    /* 自定义的缩放按钮组样式，浮动在控制栏之上，美观且不干扰原有UI */
-    .zoom-controls {
-      position: absolute;
-      bottom: 70px;  /* 位于Shaka原生控制栏上方，避免遮挡 */
-      right: 16px;
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      z-index: 10;
-      background: rgba(0,0,0,0.5);
-      backdrop-filter: blur(4px);
-      border-radius: 40px;
-      padding: 8px 6px;
-      transition: opacity 0.3s;
-    }
-
-    /* 独立的自定义缩放按钮 */
-    .zoom-btn {
-      background: rgba(30,30,35,0.85);
-      border: none;
-      color: white;
-      width: 44px;
-      height: 44px;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      cursor: pointer;
-      font-size: 24px;
-      backdrop-filter: blur(5px);
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-    }
-
-    .zoom-btn:hover {
-      background: #00aaff;
-      transform: scale(1.05);
-    }
-
-    .zoom-btn:active {
-      transform: scale(0.95);
-    }
-
-    /* 当控制栏自动隐藏时，缩放按钮也随之淡出，体验更好 */
-    .shaka-controls-container[hidden] ~ .zoom-controls {
-      opacity: 0;
-      pointer-events: none;
-    }
-
-    /* 适配移动端触摸区域放大 */
-    @media (max-width: 768px) {
-      .zoom-controls { bottom: 65px; right: 12px; gap: 8px; }
-      .zoom-btn { width: 48px; height: 48px; font-size: 26px; }
+      object-fit: contain;
     }
   </style>
 </head>
 <body>
+  <div class="shaka-video-container" data-shaka-player-container>
+    <video autoplay muted playsinline id="video"></video>
+  </div>
 
-<div class="shaka-video-container" data-shaka-player-container>
-  <video autoplay muted playsinline id="video" disablePictureInPicture></video>
-</div>
+  <script>
+    document.addEventListener("DOMContentLoaded", async () => {
+      shaka.polyfill.installAll();
 
-<script>
-  (async () => {
-    // 初始化 Polyfill 和浏览器支持检测
-    shaka.polyfill.installAll();
-    if (!shaka.Player.isBrowserSupported()) {
-      alert("您的浏览器不支持 Shaka Player！");
-      return;
-    }
-
-    const video = document.getElementById("video");
-    const container = document.querySelector('.shaka-video-container');
-
-    // 创建 Shaka 播放器核心
-    const player = new shaka.Player(video);
-    // 启用 UI 界面
-    const ui = new shaka.ui.Overlay(player, container, video);
-
-    // 配置原生控制栏的元素（保留播放、音量、全屏等，去除 quality 以防不必要的问题）
-    ui.configure({
-      controlPanelElements: ['play_pause', 'mute', 'volume', 'spacer', 'fullscreen']
-    });
-
-    // 网络重试及基础配置
-    player.configure({
-      manifest: { retryParameters: { maxAttempts: 3, timeout: 10000 } },
-      streaming: { retryParameters: { maxAttempts: 3, timeout: 10000 } }
-    });
-
-    // ---------- 缩放核心逻辑 (基于 CSS transform) ----------
-    // 定义缩放级别：最小 1.0 (原始大小)，最大 3.0 (放大三倍)，步进 0.25
-    const MIN_ZOOM = 1.0;
-    const MAX_ZOOM = 3.0;
-    const ZOOM_STEP = 0.25;
-    let currentZoom = 1.0;
-
-    // 获取视频元素，直接修改其 transform 属性来达到无损缩放
-    function applyZoom(zoomLevel) {
-      // 限制范围
-      zoomLevel = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoomLevel));
-      currentZoom = zoomLevel;
-      // 关键点：对 video 标签应用 CSS 缩放，保持中心基准
-      video.style.transform = `scale(${currentZoom})`;
-      // 可选：记录到控制台方便调试
-      console.log(`[Zoom] 当前缩放级别: ${currentZoom.toFixed(2)}`);
-    }
-
-    // 放大
-    function zoomIn() {
-      let newZoom = currentZoom + ZOOM_STEP;
-      if (newZoom > MAX_ZOOM) newZoom = MAX_ZOOM;
-      if (newZoom !== currentZoom) {
-        applyZoom(newZoom);
-      } else {
-        // 如果已达最大，可做提示或震动反馈（可选）
-        console.log("已达到最大缩放级别");
+      if (!shaka.Player.isBrowserSupported()) {
+        alert("Shaka Player is not supported in this browser!");
+        return;
       }
-    }
 
-    // 缩小
-    function zoomOut() {
-      let newZoom = currentZoom - ZOOM_STEP;
-      if (newZoom < MIN_ZOOM) newZoom = MIN_ZOOM;
-      if (newZoom !== currentZoom) {
-        applyZoom(newZoom);
-      } else {
-        console.log("已达到原始尺寸");
-      }
-    }
+      const video = document.getElementById("video");
+      const container = document.querySelector('.shaka-video-container');
+      const player = new shaka.Player(video);
+      const ui = new shaka.ui.Overlay(player, container, video);
 
-    // 重置缩放为 1.0 (原始比例)
-    function resetZoom() {
-      if (currentZoom !== MIN_ZOOM) {
-        applyZoom(MIN_ZOOM);
-      }
-    }
+      ui.configure({
+        controlPanelElements: ['play_pause', 'mute', 'volume', 'spacer', 'quality', 'fullscreen']
+      });
 
-    // ---------- 创建悬浮缩放按钮 UI (独立于原有 Shaka 控制栏，但保持视觉统一) ----------
-    const zoomControlsDiv = document.createElement('div');
-    zoomControlsDiv.className = 'zoom-controls';
-    zoomControlsDiv.setAttribute('aria-label', "视频缩放控制");
-
-    // 放大按钮 (+)
-    const zoomInBtn = document.createElement('button');
-    zoomInBtn.className = 'zoom-btn';
-    zoomInBtn.innerHTML = '<span class="material-icons" style="font-size: 24px;">zoom_in</span>';
-    zoomInBtn.setAttribute('aria-label', '放大视频画面');
-    zoomInBtn.title = '放大视频';
-
-    // 缩小按钮 (-)
-    const zoomOutBtn = document.createElement('button');
-    zoomOutBtn.className = 'zoom-btn';
-    zoomOutBtn.innerHTML = '<span class="material-icons" style="font-size: 24px;">zoom_out</span>';
-    zoomOutBtn.setAttribute('aria-label', '缩小视频画面');
-    zoomOutBtn.title = '缩小视频';
-
-    // 重置按钮 (1:1)
-    const resetZoomBtn = document.createElement('button');
-    resetZoomBtn.className = 'zoom-btn';
-    resetZoomBtn.innerHTML = '<span class="material-icons" style="font-size: 24px;">aspect_ratio</span>';
-    resetZoomBtn.setAttribute('aria-label', '重置缩放比例');
-    resetZoomBtn.title = '重置缩放';
-
-    // 绑定点击事件
-    zoomInBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      zoomIn();
-    });
-    zoomOutBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      zoomOut();
-    });
-    resetZoomBtn.addEventListener('click', (e) => {
-      e.stopPropagation();
-      resetZoom();
-    });
-
-    // 将按钮加入悬浮面板
-    zoomControlsDiv.appendChild(zoomInBtn);
-    zoomControlsDiv.appendChild(zoomOutBtn);
-    zoomControlsDiv.appendChild(resetZoomBtn);
-    container.appendChild(zoomControlsDiv);
-
-    // 可选：在移动端或全屏切换时，确保缩放按钮仍然显示在合适位置（无需额外逻辑）
-    // 监听 Shaka UI 的显示/隐藏控制栏事件，同步控制zoomControls的显隐优雅些
-    // Shaka 会自动为 .shaka-video-container 内的元素处理显隐? 因为按钮位于容器内，且独立于controls-container，因此当鼠标移出视频区域它依然可见，
-    // 但用户可通过移动到视频区域重新唤出控制栏同时看到缩放按钮，体验较好。
-    // 这里做一个优化：当鼠标离开播放器区域时，缩放按钮和原生控制栏一同淡出（通过隐藏controls-container的机制检测）
-    let inactivityTimer;
-    function resetInactivityTimer() {
-      if (inactivityTimer) clearTimeout(inactivityTimer);
-      zoomControlsDiv.style.opacity = '1';
-      zoomControlsDiv.style.pointerEvents = 'auto';
-      inactivityTimer = setTimeout(() => {
-        // 当鼠标不动3秒后，若控制栏自动隐藏，缩放按钮也柔和隐藏
-        const controlsContainer = document.querySelector('.shaka-controls-container');
-        if (controlsContainer && controlsContainer.hasAttribute('hidden')) {
-          zoomControlsDiv.style.opacity = '0';
-          zoomControlsDiv.style.pointerEvents = 'none';
+      player.configure({
+        manifest: {
+          retryParameters: { maxAttempts: 3 }
         }
-      }, 3000);
-    }
-    container.addEventListener('mousemove', resetInactivityTimer);
-    container.addEventListener('touchstart', resetInactivityTimer);
-    resetInactivityTimer(); // 初始启动
+      });
 
-    // 可选：全屏下仍然保证缩放效果正常工作 (transform 在全屏时仍然有效)
-    // 监听全屏变化事件，无需额外干预，因为 transform 作用在 video 上，全屏时依然适用。
+      const params = new URLSearchParams(window.location.search);
+      const streamUrl = params.get("url");
 
-    // ---------- 加载视频流 ----------
-    const params = new URLSearchParams(window.location.search);
-    let streamUrl = params.get("url");
-    if (streamUrl) {
       try {
-        streamUrl = decodeURIComponent(streamUrl);
-        console.log("正在加载视频:", streamUrl);
-        await player.load(streamUrl);
-        console.log("视频加载并播放成功！");
-        // 视频成功播放后，如果之前 muted，可以解除静音（可选，防止 autoplay 策略）
-        // 现代浏览器 autoplay 需要 muted，如果要开启声音，务必在用户交互之后。
-        // 这里不自动取消静音，以免违反自动播放策略，用户可手动点击音量图标。
+        if (streamUrl) {
+          await player.load(streamUrl);
+          // ভিডিও লোড成功后 আনমিউট করুন (চাইলে)
+          video.muted = True;
+          console.log("Video loaded successfully!");
+        } else {
+          alert("Error: No stream URL provided!");
+        }
       } catch (error) {
-        console.error("加载失败:", error);
-        alert(`视频加载失败: ${error.message || error.code || '未知错误'}`);
+        console.error("Error Code:", error.code, error);
+        alert("Stream load failed! Error Code: " + error.code);
       }
-    } else {
-      alert("请在 URL 后面添加 ?url=你的视频流地址 (支持.mpd或.m3u8)");
-    }
-  })();
-</script>
-
+    });
+  </script>
 </body>
 </html>
