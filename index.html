@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>RS Shaka Premium Player</title>
+  <title>RS Premium Player</title>
   
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.min.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css">
-  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.compiled.js"></script>
+
   <style>
     html, body {
       margin: 0;
@@ -16,11 +15,15 @@
       width: 100%;
       height: 100%;
       overflow: hidden;
+      font-family: Arial, sans-serif;
     }
-    .shaka-video-container {
-      width: 100% !important;
-      height: 100% !important;
+    
+    .player-container {
+      width: 100%;
+      height: 100%;
+      position: relative;
     }
+    
     video {
       width: 100% !important;
       height: 100% !important;
@@ -28,53 +31,92 @@
       transition: object-fit 0.2s ease;
     }
 
-    /* 📱 জুম ও স্ট্রেচ মোড সেটিংস */
+    /* 📱 জুম ও স্ট্রেচ সেটিংস */
     video.zoom-mode { object-fit: cover !important; }
     video.stretch-mode { object-fit: fill !important; }
 
-    /* 🎛️ প্রিমিয়াম থ্রি-ডট ড্রপডাউন মেনুর স্টাইল (৩ নম্বর স্ক্রিনশটের মতো) */
-    .shaka-zoom-menu {
-      background: rgba(32, 32, 32, 0.95);
-      border-radius: 6px;
-      padding: 5px;
-      display: none;
+    /* 🎛️ ৩ নম্বর স্ক্রিনশটের মতো প্রিমিয়াম ড্রপডাউন মেনু ডিজাইন */
+    .custom-control-bar {
       position: absolute;
-      bottom: 60px;
-      right: 15px;
-      z-index: 100;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-      border: 1px solid rgba(255,255,255,0.1);
+      bottom: 20px;
+      right: 20px;
+      z-index: 9999;
     }
-    .shaka-zoom-menu button {
+
+    /* গিয়ার/সেটিংস বাটন */
+    .settings-btn {
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: white;
+      padding: 8px;
+      border-radius: 50%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+    }
+
+    .settings-btn:hover {
+      background: #e50914;
+    }
+
+    /* আসল ড্রপডাউন মেনু বক্স (৩ নম্বর স্ক্রিনশটের মতো) */
+    .zoom-dropdown {
+      position: absolute;
+      bottom: 45px;
+      right: 0;
+      background: rgba(28, 28, 28, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 6px;
+      padding: 6px;
+      display: none;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+    }
+
+    .zoom-dropdown button {
       display: block;
-      width: 120px;
+      width: 110px;
       background: none;
       border: none;
-      color: #fff;
-      padding: 10px;
+      color: #ccc;
+      padding: 8px 12px;
       text-align: left;
       font-size: 13px;
       font-weight: 500;
       cursor: pointer;
       border-radius: 4px;
+      transition: all 0.2s;
     }
-    .shaka-zoom-menu button:hover {
-      background: #e50914; /* প্রিমিয়াম রেড থিম */
+
+    .zoom-dropdown button:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: white;
     }
-    .shaka-zoom-menu button.active {
-      background: #e50914;
+
+    .zoom-dropdown button.active {
+      background: #e50914; /* অ্যাক্টিভ হলে লাল রঙ হবে */
+      color: white;
     }
   </style>
 </head>
 <body>
 
-  <div class="shaka-video-container" data-shaka-player-container>
-    <video autoplay playsinline id="video"></video>
+  <div class="player-container">
+    <video autoplay playsinline controls id="video"></video>
     
-    <div class="shaka-zoom-menu" id="zoomMenu">
-      <button id="btn-orig" class="active">Original</button>
-      <button id="btn-stretch">Stretch</button>
-      <button id="btn-zoom">Fill (Zoom)</button>
+    <div class="custom-control-bar">
+      <button class="settings-btn" id="settingsBtn" title="Screen Zoom">
+        <svg fill="#ffffff" height="20px" width="20px" viewBox="0 0 24 24">
+          <path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.74,8.87 c-0.12,0.21-0.08,0.47,0.12,0.61l2.03,1.58C4.84,11.36,4.81,11.69,4.81,12c0,0.31,0.02,0.65,0.07,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.47-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/>
+        </svg>
+      </button>
+
+      <div class="zoom-dropdown" id="zoomDropdown">
+        <button id="btn-orig" class="active">Original</button>
+        <button id="btn-stretch">Stretch</button>
+        <button id="btn-zoom">Fill (Zoom)</button>
+      </div>
     </div>
   </div>
 
@@ -83,83 +125,60 @@
       shaka.polyfill.installAll();
 
       if (!shaka.Player.isBrowserSupported()) {
-        alert("Shaka Player is not supported in this browser!");
         return;
       }
 
       const video = document.getElementById("video");
-      const container = document.querySelector('.shaka-video-container');
       const player = new shaka.Player(video);
-      const ui = new shaka.ui.Overlay(player, container, video);
 
-      // কন্ট্রোল প্যানেল কনফিগারেশন
-      ui.configure({
-        controlPanelElements: ['play_pause', 'mute', 'volume', 'spacer', 'quality', 'fullscreen']
-      });
-
+      // নেটওয়ার্ক বা বাফারিং জনিত এরর এড়ানোর কনফিগারেশন
       player.configure({
-        manifest: { retryParameters: { maxAttempts: 5, baseDelay: 1000 } }
+        manifest: { retryParameters: { maxAttempts: 4, baseDelay: 1000 } },
+        streaming: { bufferingGoal: 10 }
       });
 
-      // ⚙️ কন্ট্রোল বারে প্রিমিয়াম গিয়ার/থ্রি-ডট এর মতো জুম বাটন যোগ করার লজিক
-      const controlPanel = container.querySelector('.shaka-control-panel');
-      const zoomMenuBtn = document.createElement('button');
-      zoomMenuBtn.classList.add('shaka-fullscreen-button', 'shaka-no-propagation');
-      // SVG দিয়ে একটি সুন্দর ডিসপ্লে/আspect রেশিও আইকন তৈরি
-      zoomMenuBtn.innerHTML = `<svg fill="#ffffff" height="20px" width="20px" viewBox="0 0 24 24"><path d="M4 4h16v16H4V4zm2 2v12h12V6H6z"/></svg>`;
-      zoomMenuBtn.style.cursor = 'pointer';
-      
-      const fullscreenBtn = controlPanel.querySelector('.shaka-fullscreen-button');
-      if (fullscreenBtn) {
-        controlPanel.insertBefore(zoomMenuBtn, fullscreenBtn);
-      } else {
-        controlPanel.appendChild(zoomMenuBtn);
-      }
+      // ⚙️ মেনু শো/হাইড লজিক
+      const settingsBtn = document.getElementById('settingsBtn');
+      const zoomDropdown = document.getElementById('zoomDropdown');
 
-      // ড্রপডাউন মেনু শো/হাইড লজিক
-      const zoomMenu = document.getElementById('zoomMenu');
-      zoomMenuBtn.addEventListener('click', (e) => {
+      settingsBtn.addEventListener('click', (e) => {
         e.stopPropagation();
-        zoomMenu.style.display = zoomMenu.style.display === 'block' ? 'none' : 'block';
+        zoomDropdown.style.display = zoomDropdown.style.display === 'block' ? 'none' : 'block';
       });
 
       document.addEventListener('click', () => {
-        zoomMenu.style.display = 'none';
+        zoomDropdown.style.display = 'none';
       });
 
-      // মোড পরিবর্তন করার লজিক
+      // 🔄 জুম মোড পরিবর্তন লজিক
       const buttons = {
         orig: document.getElementById('btn-orig'),
         stretch: document.getElementById('btn-stretch'),
         zoom: document.getElementById('btn-zoom')
       };
 
-      function setZoomMode(mode, activeBtn) {
-        video.className = mode;
+      function setZoomMode(className, activeBtn) {
+        video.className = className;
         Object.values(buttons).forEach(btn => btn.classList.remove('active'));
         activeBtn.classList.add('active');
-        zoomMenu.style.display = 'none';
+        zoomDropdown.style.display = 'none';
       }
 
       buttons.orig.addEventListener('click', () => setZoomMode('', buttons.orig));
       buttons.stretch.addEventListener('click', () => setZoomMode('stretch-mode', buttons.stretch));
       buttons.zoom.addEventListener('click', () => setZoomMode('zoom-mode', buttons.zoom));
 
-      // 🔗 ইউআরএল থেকে ভিডিওর সঠিক লিংক রিড করা
+      // 🔗 ইউআরএল থেকে ভিডিওর সঠিক লিংক নেওয়া
       const params = new URLSearchParams(window.location.search);
       const streamUrl = params.get("url");
 
-      try {
-        if (streamUrl) {
+      if (streamUrl) {
+        try {
+          // লিংকটিকে সম্পূর্ণ সেফভাবে ডিকোড করে লোড করা
           await player.load(decodeURIComponent(streamUrl));
-          video.muted = false; // এখানে জাভাস্ক্রিপ্টের ছোট হাতের true/false ব্যবহার করা হয়েছে
-          console.log("Video loaded successfully!");
-        }
-      } catch (error) {
-        console.error("Error Code:", error.code, error);
-        // যদি এরর কোড না থাকে তবে পপআপ না দেখিয়ে কনসোলে রাখবে
-        if(error.code) {
-          alert("Stream load failed! Error Code: " + error.code);
+          console.log("Success");
+        } catch (error) {
+          console.error("Load Error:", error.code);
         }
       }
     });
