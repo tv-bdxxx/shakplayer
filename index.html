@@ -1,184 +1,151 @@
 <!DOCTYPE html>
 <html lang="bn">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>RS Premium Live TV Player</title>
-  
-  <!-- Shaka Player কোর + UI লাইব্রেরি (সঠিক সংস্করণ) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.compiled.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/shaka-player.ui.js"></script>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/shaka-player/4.7.11/controls.min.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>RS Live TV - Clean Player</title>
 
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
-    .shaka-video-container { width: 100%; height: 100%; }
-    video { width: 100%; height: 100%; object-fit: contain; transition: 0.2s; }
-    video.zoom-mode { object-fit: cover; }
-    video.stretch-mode { object-fit: fill; }
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 
-    .shaka-custom-zoom-btn {
-      background: none; border: none; color: white; font-weight: bold;
-      cursor: pointer; font-size: 13px; padding: 0 12px; height: 100%;
-      display: flex; align-items: center; text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{background:#000;overflow:hidden;font-family:sans-serif;}
 
-    .shaka-zoom-dropdown {
-      position: absolute; bottom: 48px; background: rgba(0,0,0,0.9);
-      backdrop-filter: blur(8px); border-radius: 8px; padding: 5px;
-      display: none; z-index: 9999; border: 1px solid rgba(255,255,255,0.2);
-      box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-    }
-    .shaka-zoom-dropdown button {
-      display: block; width: 140px; background: none; border: none;
-      color: #eee; padding: 8px 12px; text-align: left; font-size: 13px;
-      cursor: pointer; border-radius: 6px; font-weight: 500;
-    }
-    .shaka-zoom-dropdown button:hover, .shaka-zoom-dropdown button.active {
-      background: #e50914; color: white;
-    }
-    /* ছোট স্ক্রিনে ড্রপডাউন ভালো দেখাতে */
-    @media (max-width: 640px) {
-      .shaka-zoom-dropdown button { width: 120px; padding: 6px 10px; }
-    }
-  </style>
+.video-container{
+  width:100vw;
+  height:100vh;
+  position:relative;
+}
+
+video{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  background:#000;
+}
+
+/* Loader */
+.loader{
+  position:absolute;
+  inset:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  flex-direction:column;
+  background:#000;
+  color:#fff;
+  z-index:10;
+}
+
+.spinner{
+  width:50px;
+  height:50px;
+  border:4px solid rgba(255,255,255,0.2);
+  border-top:4px solid #00c3ff;
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+}
+
+@keyframes spin{
+  100%{transform:rotate(360deg);}
+}
+
+.msg{
+  margin-top:15px;
+  font-size:14px;
+  opacity:0.8;
+}
+</style>
 </head>
+
 <body>
 
-<div class="shaka-video-container" data-shaka-player-container id="playerContainer">
-  <video autoplay muted playsinline id="video"></video>
-  <div class="shaka-zoom-dropdown" id="zoomDropdown">
-    <button id="btn-orig" class="active">📐 Original (Fit)</button>
-    <button id="btn-stretch">📏 Stretch (Fill)</button>
-    <button id="btn-zoom">🔍 Zoom (Cover)</button>
+<div class="video-container">
+  <div class="loader" id="loader">
+    <div class="spinner"></div>
+    <div class="msg" id="msg">Loading Stream...</div>
   </div>
+
+  <video id="video" controls playsinline autoplay muted></video>
 </div>
 
 <script>
-  (function() {
-    if (!window.shaka || !shaka.Player.isBrowserSupported()) {
-      alert("আপনার ব্রাউজার Shaka Player সাপোর্ট করে না। ক্রোম বা এজ ব্যবহার করুন।");
-      return;
-    }
-    shaka.polyfill.installAll();
+const video = document.getElementById("video");
+const loader = document.getElementById("loader");
+const msg = document.getElementById("msg");
 
-    const video = document.getElementById('video');
-    const container = document.getElementById('playerContainer');
-    const dropdown = document.getElementById('zoomDropdown');
-    
-    let player = null;
-    let ui = null;
+const url = new URLSearchParams(window.location.search).get("url");
 
-    // কাস্টম বাটন যোগ করার ফাংশন (UI তৈরি হওয়ার পর)
-    function addZoomButton() {
-      const controlPanel = container.querySelector('.shaka-control-panel');
-      if (!controlPanel || controlPanel.querySelector('.shaka-custom-zoom-btn')) {
-        if (!controlPanel) setTimeout(addZoomButton, 150);
-        return;
+if(!url){
+  msg.innerText = "No Stream URL Found";
+} else {
+
+  const streamUrl = decodeURIComponent(url);
+
+  if(Hls.isSupported()){
+    const hls = new Hls({
+      enableWorker:true,
+      lowLatencyMode:true,
+      backBufferLength:30,
+      maxBufferLength:60,
+      manifestLoadingTimeOut:15000,
+      fragLoadingTimeOut:15000
+    });
+
+    hls.loadSource(streamUrl);
+    hls.attachMedia(video);
+
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      video.play().catch(e => {
+        console.log("Autoplay blocked:", e);
+        msg.innerText = "Tap to Play";
+        loader.style.display = "none";
+      });
+    });
+
+    hls.on(Hls.Events.ERROR, (event, data) => {
+      console.log("HLS ERROR:", data);
+
+      if(data.fatal){
+        switch(data.type){
+          case Hls.ErrorTypes.NETWORK_ERROR:
+            msg.innerText = "Network Error - Retrying...";
+            hls.startLoad();
+            break;
+
+          case Hls.ErrorTypes.MEDIA_ERROR:
+            msg.innerText = "Media Error - Recovering...";
+            hls.recoverMediaError();
+            break;
+
+          default:
+            msg.innerText = "Stream Not Supported / Blocked";
+            loader.style.display = "flex";
+            break;
+        }
       }
+    });
 
-      const zoomBtn = document.createElement('button');
-      zoomBtn.classList.add('shaka-custom-zoom-btn');
-      zoomBtn.innerText = '📐 Original';
+    video.addEventListener("playing", () => {
+      loader.style.display = "none";
+    });
 
-      const fullBtn = controlPanel.querySelector('.shaka-fullscreen-button');
-      if (fullBtn) controlPanel.insertBefore(zoomBtn, fullBtn);
-      else controlPanel.appendChild(zoomBtn);
+    video.addEventListener("waiting", () => {
+      loader.style.display = "flex";
+      msg.innerText = "Buffering...";
+    });
 
-      // ড্রপডাউন টগল
-      zoomBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const rect = zoomBtn.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-        dropdown.style.right = (containerRect.right - rect.right) + 'px';
-        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
-      });
-
-      // জুম মোড হ্যান্ডলার
-      const btnOrig = document.getElementById('btn-orig');
-      const btnStretch = document.getElementById('btn-stretch');
-      const btnZoom = document.getElementById('btn-zoom');
-
-      function setMode(className, label, activeBtn) {
-        video.className = className;
-        zoomBtn.innerText = label;
-        [btnOrig, btnStretch, btnZoom].forEach(btn => btn.classList.remove('active'));
-        activeBtn.classList.add('active');
-        dropdown.style.display = 'none';
-      }
-
-      btnOrig.onclick = () => setMode('', '📐 Original', btnOrig);
-      btnStretch.onclick = () => setMode('stretch-mode', '📏 Stretch', btnStretch);
-      btnZoom.onclick = () => setMode('zoom-mode', '🔍 Zoom', btnZoom);
-
-      document.addEventListener('click', () => dropdown.style.display = 'none');
-    }
-
-    // URL প্যারামিটার থেকে স্ট্রিম লোড
-    const params = new URLSearchParams(window.location.search);
-    let streamUrl = params.get('url');
-    
-    if (!streamUrl) {
-      // ডেমো স্ট্রিম (পাবলিক টেস্ট)
-      streamUrl = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8';
-      console.warn('⚠️ কোনো url প্যারামিটার নেই। ডেমো ভিডিও চালানো হচ্ছে।');
-      showTemporaryMessage('ডেমো স্ট্রিম চালু আছে। ?url= আপনার লিংক দিন');
-    } else {
-      streamUrl = decodeURIComponent(streamUrl).trim();
-      console.log('🎬 লোড করার চেষ্টা:', streamUrl);
-    }
-
-    // Shaka প্লেয়ার ইনিশিয়ালাইজ
-    try {
-      player = new shaka.Player(video);
-      ui = new shaka.ui.Overlay(player, container, video);
-      
-      ui.configure({
-        controlPanelElements: ['play_pause', 'mute', 'volume', 'spacer', 'quality', 'fullscreen']
-      });
-      
-      player.configure({
-        manifest: { retryParameters: { maxAttempts: 3, baseDelay: 1000, timeout: 10000 } },
-        streaming: { retryParameters: { maxAttempts: 3, baseDelay: 500 } }
-      });
-
-      // লোড করার চেষ্টা
-      player.load(streamUrl).then(() => {
-        video.muted = false;
-        console.log('✅ স্ট্রিম সফলভাবে লোড হয়েছে');
-        addZoomButton(); // UI পুরোপুরি রেন্ডার হওয়ার পর বাটন যোগ
-      }).catch(error => {
-        console.error('❌ Shaka লোড এরর:', error);
-        let errMsg = error.message || error.toString();
-        // ব্যাকআপ: সরাসরি video.src
-        video.src = streamUrl;
-        video.muted = false;
-        video.play().then(() => {
-          console.log('⚠️ নেটিভ ভিডিও প্লেব্যাক শুরু হয়েছে (Shaka ব্যর্থ)');
-          addZoomButton(); // নেটিভ প্লেয়ারেও জুম বাটন থাকবে
-        }).catch(e => {
-          console.error('নেটিভ প্লেব্যাকও ব্যর্থ:', e);
-          showTemporaryMessage('স্ট্রিম লোড করা যায়নি। স্ট্রিমটি এনক্রিপ্টেড বা CORS ব্লক করেছে।');
-        });
-      });
-    } catch (initErr) {
-      console.error('প্লেয়ার ইনিশিয়ালাইজেশন ব্যর্থ:', initErr);
-      showTemporaryMessage('প্লেয়ার তৈরি করতে পারলাম না। ব্রাউজার রিফ্রেশ করুন।');
-    }
-
-    function showTemporaryMessage(msg) {
-      const div = document.createElement('div');
-      div.textContent = msg;
-      div.style.position = 'fixed'; div.style.bottom = '20%'; div.style.left = '10%'; div.style.right = '10%';
-      div.style.backgroundColor = 'rgba(0,0,0,0.8)'; div.style.color = '#ffaa00'; div.style.padding = '12px';
-      div.style.borderRadius = '8px'; div.style.textAlign = 'center'; div.style.zIndex = '99999';
-      div.style.fontSize = '14px'; div.style.fontFamily = 'sans-serif';
-      document.body.appendChild(div);
-      setTimeout(() => div.remove(), 5000);
-    }
-  })();
+  } else if(video.canPlayType("application/vnd.apple.mpegurl")){
+    video.src = streamUrl;
+    video.addEventListener("loadedmetadata", () => {
+      video.play();
+      loader.style.display = "none";
+    });
+  } else {
+    msg.innerText = "HLS Not Supported";
+  }
+}
 </script>
+
 </body>
 </html>
