@@ -1,24 +1,24 @@
 <!DOCTYPE html>
-<html>
+<html lang="bn">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <title>Live Player</title>
+    <title>Full Player</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/plyr@3.6.2/dist/plyr.css" />
     <style>
         body, html { 
             margin: 0; padding: 0; 
             width: 100%; height: 100%; 
-            background: #000; 
-            overflow: hidden; 
+            background: #000; overflow: hidden; 
         }
-        /* ভিডিওর অনুপাত ঠিক রেখে স্ক্রিন পূর্ণ করার জন্য */
-        .plyr--video { 
-            width: 100vw; height: 100vh; 
-        }
+        /* ভিডিও কন্টেইনার এবং ভিডিওর আকার নির্ধারণ */
+        .plyr--video { width: 100vw; height: 100vh; }
+        
         video { 
             width: 100%; height: 100%; 
-            object-fit: cover; /* এটি ভিডিওকে কোনো ফাঁকা অংশ না রেখে পুরো স্ক্রিন জুড়ে দেখাবে */
+            /* ভিডিও কাটবে না এবং অনুপাত ঠিক রেখে স্ক্রিনে ফিট হবে */
+            object-fit: contain; 
+            background-color: #000;
         }
     </style>
 </head>
@@ -32,19 +32,14 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.1.4/dist/hls.min.js"></script>
 
 <script>
-    // URL থেকে ভিডিও লিঙ্ক সংগ্রহ
     const urlParams = new URLSearchParams(window.location.search);
     const videoSrc = urlParams.get('url');
     const video = document.getElementById('player');
-    const source = video.querySelector('source');
-
-    if (videoSrc) {
-        source.src = videoSrc;
-    }
+    
+    if (videoSrc) { video.querySelector('source').src = videoSrc; }
 
     document.addEventListener("DOMContentLoaded", () => {
         const player = new Plyr(video, {
-            controls: ['play-large', 'play', 'progress', 'current-time', 'mute', 'volume', 'fullscreen'],
             fullscreen: { enabled: true, fallback: true, iosNative: true }
         });
 
@@ -52,19 +47,15 @@
             const hls = new Hls();
             hls.loadSource(videoSrc);
             hls.attachMedia(video);
-            hls.on(Hls.Events.MANIFEST_PARSED, function() {
-                video.play().catch(e => console.log("Autoplay blocked, user interaction needed"));
-            });
         }
-    });
 
-    // ফুল স্ক্রিন হওয়ার সময় স্ক্রিন ঘোরানোর সিগন্যাল
-    video.addEventListener('fullscreenchange', () => {
-        if (document.fullscreenElement) {
-            console.log("Full Screen Active");
-        }
+        // ফুলস্ক্রিন হলে ল্যান্ডস্কেপ মোড লক করা
+        player.on('enterfullscreen', () => {
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(() => {});
+            }
+        });
     });
 </script>
-
 </body>
 </html>
