@@ -1,43 +1,44 @@
 <!DOCTYPE html>
-<html lang="bn">
+<html>
 <head>
-    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Exo-Style Web Player</title>
-    <link href="https://vjs.zencdn.net/8.10.0/video-js.css" rel="stylesheet" />
+    <script src="https://content.jwplatform.com/libraries/YOUR_JW_PLAYER_KEY.js"></script>
     <style>
-        body { margin: 0; padding: 0; background: #000; overflow: hidden; }
-        .video-js { width: 100vw; height: 100vh; }
-        /* Center Crop Effect */
-        .vjs-tech { object-fit: cover; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+        #player-container { width: 100vw; height: 100vh; }
     </style>
 </head>
 <body>
 
-<video id="my-video" class="video-js vjs-big-play-centered" controls preload="auto" autoplay playsinline>
-    <p class="vjs-no-js">আপনার ব্রাউজার ভিডিও সাপোর্ট করে না।</p>
-</video>
+<div id="player-container"></div>
 
-<script src="https://vjs.zencdn.net/8.10.0/video.min.js"></script>
 <script>
-    // URL থেকে ভিডিও সোর্স পাওয়া
     const urlParams = new URLSearchParams(window.location.search);
     const videoUrl = urlParams.get('url');
 
-    var player = videojs('my-video', {
-        playbackRates: [0.5, 1, 1.5, 2],
-        controlBar: {
-            children: [
-                'playToggle', 'volumePanel', 'currentTimeDisplay', 
-                'progressControl', 'playbackRateMenuButton', 
-                'fullscreenToggle'
-            ]
-        }
+    var player = jwplayer("player-container").setup({
+        file: videoUrl,
+        autostart: true,
+        mute: false,
+        stretching: "uniform", // এটিই আপনার পছন্দের Center Crop (Zoom) এর বিকল্প
+        width: "100%",
+        height: "100%",
+        abouttext: "Player",
+        playbackRateControls: [0.5, 1, 1.5, 2],
+        pipIcon: "enabled"
     });
 
-    if (videoUrl) {
-        player.src({ src: videoUrl, type: videoUrl.includes('.m3u8') ? 'application/x-mpegURL' : 'video/mp4' });
-    }
+    // Double Tap Seek (Custom Logic)
+    let lastTap = 0;
+    player.getContainer().addEventListener('touchend', function(e) {
+        let currentTime = new Date().getTime();
+        let tapLength = currentTime - lastTap;
+        if (tapLength < 500 && tapLength > 0) {
+            player.seek(player.getPosition() + 10);
+            e.preventDefault();
+        }
+        lastTap = currentTime;
+    });
 </script>
 </body>
 </html>
